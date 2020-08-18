@@ -11,3 +11,7 @@ paste it wherever you want.
 
 It doesn't do any code reordering or clever things, all it does is remove comments, change the
 names of all the identifiers to short names and removes whitespace.
+
+# Building and running
+Building is just done with ``cargo build``. When running you have to make sure that the
+``blacklist.txt`` file is in the same folder as the executable, otherwise it will not work.
