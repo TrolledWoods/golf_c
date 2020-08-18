@@ -174,6 +174,17 @@ fn golfify_code(code: &str, id_blacklist: &HashSet<String>) -> String {
 			golfifyer.read_number();
 		} else if c == '"' {
 			golfifyer.read_string_literal();
+		} else if c == '#' {
+			// Preprocessor directive. Just skip until it's over
+			while let Some(c) = golfifyer.chars.next() {
+				golfifyer.output.push(c);
+				if c == '\n' {
+					break;
+				}
+			}
+			// The previous character is a \n, normally whitespace characters are not inserted
+			// but here we do not have a choice.
+			golfifyer.previous_token = TokenType::SpecialCharacter;
 		} else {
 			if !c.is_whitespace() {
 				golfifyer.output.push(c);
@@ -189,9 +200,11 @@ fn golfify_code(code: &str, id_blacklist: &HashSet<String>) -> String {
 
 fn main() {
 	let c_code = r#"
+	#include<stdio.h>
+
 	void main() {
 		int my_variable = 0;
-		int more_variable = 0000001245;
+		int more_variable = 1245;
 
 		printf("%d\n", my_variable);
 	}
