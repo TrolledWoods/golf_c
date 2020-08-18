@@ -1,0 +1,10 @@
+void
+int
+short
+long
+float
+char
+main
+printf
+scanf
+define
