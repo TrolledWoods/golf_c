@@ -100,10 +100,20 @@ impl Golfifyer<'_> {
 
 		while let Some(c) = self.peek_char() {
 			if let Some(digit) = c.to_digit(base) {
-				// TODO: Make this checked_mul and checked_add so that you can't crash the program
-				// with too massive numbers.
-				number *= base as i128;
-				number += digit as i128;
+				number = match number.checked_mul(base as i128) {
+					Some(num) => num,
+					None => {
+						println!("WARNING: A number is too big");
+						0
+					},
+				};
+				number = match number.checked_add(digit as i128) {
+					Some(num) => num,
+					None => {
+						println!("WARNING: A number is too big");
+						0
+					},
+				};
 
 				self.chars.next();
 			} else {
