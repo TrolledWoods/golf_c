@@ -196,12 +196,36 @@ pub fn golfify_code(code: &str, id_blacklist: &HashSet<String>) -> String {
 			// but here we do not have a choice.
 			golfifyer.previous_token = TokenType::SpecialCharacter;
 		} else {
-			if !c.is_whitespace() {
-				golfifyer.output.push(c);
-				golfifyer.previous_token = TokenType::SpecialCharacter;
-			}
-
 			golfifyer.chars.next();
+
+			if !c.is_whitespace() {
+				if c == '\'' {
+					// Character literal
+					golfifyer.output.push(c);
+					if let Some(c) = golfifyer.chars.next() {
+						if c == '\\' {
+							if let Some(c) = golfifyer.chars.next() {
+								golfifyer.output.push(c);
+							}
+						}
+
+						golfifyer.output.push(c);
+					}
+					if let Some(c) = golfifyer.chars.next() {
+						golfifyer.output.push(c);
+					}else {
+						println!("WARNING: Character literal not closed properly");
+					}
+					golfifyer.previous_token = TokenType::SpecialCharacter;
+				}else if c == '/' && golfifyer.peek_char() == Some('/') {
+					while let Some(c) = golfifyer.chars.next() {
+						if c == '\n' || c == '\r' { break; }
+					}
+				} else {
+					golfifyer.output.push(c);
+					golfifyer.previous_token = TokenType::SpecialCharacter;
+				}
+			}
 		}
 	}
 
