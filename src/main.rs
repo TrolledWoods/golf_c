@@ -61,18 +61,21 @@ impl Golfifyer<'_> {
 			self.prepare_for_identifier();
 			self.output.push_str(&identifier);
 		} else {
-			let name_id = match self.id_map.get(&identifier) {
-				Some(&name_id) => name_id,
+			self.prepare_for_identifier();
+			match self.id_map.get(&identifier) {
+				Some(&name_id) => {
+					let result = generate_id_and_push(&mut self.output, name_id, self.id_blacklist);
+					// The id should be valid
+					assert!(result);
+				},
 				None => {
-					let name_id = self.id_counter;
+					while !generate_id_and_push(&mut self.output, self.id_counter, self.id_blacklist) {
+						self.id_counter += 1;
+					}
+					self.id_map.insert(identifier.clone(), self.id_counter);
 					self.id_counter += 1;
-					self.id_map.insert(identifier.clone(), name_id);
-					name_id
 				},
 			};
-
-			self.prepare_for_identifier();
-			generate_id_and_push(&mut self.output, name_id);
 		}
 
 		self.previous_token = TokenType::Identifier;
@@ -132,13 +135,28 @@ impl Golfifyer<'_> {
 
 		self.previous_token = TokenType::Number;
 	}
+
+	fn read_string_literal(&mut self) {
+		assert_eq!(self.chars.next(), Some('"'));
+		self.output.push('"');
+
+		while let Some(c) = self.chars.next() {
+			self.output.push(c);
+			if c == '\\' {
+				// Don't do anything special with the next character
+				if let Some(c) = self.chars.next() {
+					self.output.push(c);
+				}
+			} else if c == '"' {
+				break;
+			}
+		}
+
+		self.previous_token = TokenType::SpecialCharacter;
+	}
 }
 
 fn golfify_code(code: &str, id_blacklist: &HashSet<String>) -> String {
-	// TODO: Deal with string literals
-	// TODO: Deal with hex int literals
-	// TODO: Maybe check if an int literal is shorter in hex mode, or if a hex int literal
-	// is shorter in int mode.
 	let mut golfifyer = Golfifyer {
 		output: String::new(),
 		id_map: HashMap::new(),
@@ -154,6 +172,8 @@ fn golfify_code(code: &str, id_blacklist: &HashSet<String>) -> String {
 			golfifyer.read_identifier();
 		} else if c.is_digit(10) {
 			golfifyer.read_number();
+		} else if c == '"' {
+			golfifyer.read_string_literal();
 		} else {
 			if !c.is_whitespace() {
 				golfifyer.output.push(c);
@@ -178,18 +198,29 @@ fn main() {
 	"#;
 
 	let mut blacklist = HashSet::new();
-	for line in std::fs::read_to_string("blacklist.txt").expect("Cannot open 'blacklist.txt', this file is required for the tool to work").lines() {
-		blacklist.insert(line.to_string());
+	for line in 
+		std::fs::read_to_string("blacklist.txt")
+			.expect("Cannot open 'blacklist.txt', this file is required for the tool to work")
+			.lines() 
+			.map(|v| v.trim())
+			.filter(|v| v.len() > 0)
+			.filter(|v| !v.starts_with("//"))
+	{
+		blacklist.insert(line.trim().to_string());
 	}
 
 	let golfed_code = golfify_code(c_code, &blacklist);
 	println!("{}", golfed_code);
 }
 
-fn generate_id_and_push(buffer: &mut String, mut counter: usize) {
+/// Generates an id and pushes it to the buffer. Some ids are not valid(because some identifiers
+/// are taken by the c standard library or keywords), so if the counter would generate an identifier
+/// that is already taken, it will not push it to the buffer, but will instead return false.
+fn generate_id_and_push(buffer: &mut String, mut counter: usize, blacklist: &HashSet<String>) -> bool {
 	const FIRST: &[u8] = b"_abcdefghijklmnopqrstuvwxyzABCDEFGHILKLMNOPQRSTUVWXYZ";
 	const MORE: &[u8] = b"_abcdefghijklmnopqrstuvwxyzABCDEFGHILKLMNOPQRSTUVWXYZ0123456789";
 
+	let start = buffer.len();
 	buffer.push(FIRST[counter % FIRST.len()].into());
 	counter /= FIRST.len();
 
@@ -197,4 +228,11 @@ fn generate_id_and_push(buffer: &mut String, mut counter: usize) {
 		buffer.push(MORE[counter % MORE.len()].into());
 		counter /= MORE.len();
 	}
+
+	if blacklist.contains(&buffer[start..]) {
+		buffer.truncate(start);
+		return false;
+	}
+
+	true
 }
